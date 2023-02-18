@@ -12,13 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
-        run: apt update && apt install -y curl && shards install
+        run: apt update && apt install -y curl libsqlite3-dev && shards install
 
-      - name: Build the binary
+      - name: Build the rethink binary
         run: crystal build src/rethink.cr --release --no-debug
 
+      - name: Build the migration script binary
+        run: crystal build src/migrate.cr --release --no-debug
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: rethink
-          path: rethink
+          path: |
+            rethink
+            migrate
