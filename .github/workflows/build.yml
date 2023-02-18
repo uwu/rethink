@@ -1,0 +1,24 @@
+name: Crystal CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: apt update && apt install -y curl && shards install
+
+      - name: Build the binary
+        run: crystal build src/rethink.cr --release --no-debug
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: rethink
+          path: rethink
