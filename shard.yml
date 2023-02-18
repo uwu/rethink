@@ -1,0 +1,26 @@
+name: rethink
+version: 0.1.0
+
+authors:
+  - toonlink <toonlink@riseup.net>
+
+dependencies:
+  kemal:
+    github: kemalcr/kemal
+
+  db:
+    github: crystal-lang/crystal-db
+
+  sqlite3:
+    github: crystal-lang/crystal-sqlite3
+    
+  crystal-argon2:
+    github: sushichain/crystal-argon2
+
+targets:
+  rethink:
+    main: src/rethink.cr
+
+crystal: 1.7.2
+
+license: Ms-PL
