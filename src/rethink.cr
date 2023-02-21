@@ -15,20 +15,6 @@ class Thought
   end
 end
 
-class Thoughts
-  def initialize(@thoughts : Array(Thought))
-  end
-
-  ECR.def_to_s "src/views/thoughts.ecr"
-end
-
-class Feed
-  def initialize(@user : String, @thoughts : Array(Thought))
-  end
-
-  ECR.def_to_s "src/views/feed.ecr"
-end
-
 def getThoughtsByUser(name : String) : Array(Thought)
   thoughts = [] of Thought
 
@@ -61,19 +47,22 @@ get "/~:name" do |ctx|
   rescue ex
   end
 
-  if thoughts.nil?
-    ctx.response.status_code = 404
-    next "User not found"
-  end
+  halt ctx, status_code: 404, response: "User not found" if thoughts.nil?
 
-  Thoughts.new(thoughts).to_s
+  render "src/views/thoughts.ecr"
 end
 
 get "/~:name/feed" do |ctx|
   ctx.response.headers["Content-Type"] = "application/atom+xml"
   name = ctx.params.url["name"]
-  thoughts = getThoughtsByUser(name)
-  Feed.new(name, thoughts).to_s
+  begin
+    thoughts = getThoughtsByUser(name)
+  rescue ex
+  end
+
+  halt ctx, status_code: 404, response: "User not found" if thoughts.nil?
+
+  render "src/views/feed.ecr"
 end
 
 get "/" do

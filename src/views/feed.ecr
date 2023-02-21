@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title><%= @user %> | rethink</title>
+  <title><%= name %> | rethink</title>
   <subtitle>it's all in your head.</subtitle>
 
   <link rel="alternate" href="/" />
-  <link rel="self" href="/~<%= @user %>" />
+  <link rel="self" href="/~<%= @name %>" />
   <author>
-      <name><%= @user %></name>
+      <name><%= name %></name>
   </author>
-  <id>/~<%= @user %></id>
+  <id>/~<%= name %></id>
   <generator version="1.0.0">rethink-rss</generator>
 
-  <%- @thoughts.reverse.each_index do |i| -%>
+  <%- thoughts.reverse.each_with_index do |thought, i| -%>
   <entry>
-    <title>a thought by <%= @user %></title>
-    <published><%= @thoughts[i].date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></published>
-    <updated><%= @thoughts[i].date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></updated>
+    <title>a thought by <%= name %></title>
+    <published><%= thought.date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></published>
+    <updated><%= thought.date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></updated>
     <author>
-    <name><%= @user %></name>
+    <name><%= name %></name>
     </author>
-    <link rel="alternate" href="/~<%= @user %>" />
-    <summary><%= @thoughts[i].content %></summary>
+    <link rel="alternate" href="/~<%= name %>" />
+    <summary><%= thought.content %></summary>
     <id><%= i %></id>
   </entry>
   <%- end -%>

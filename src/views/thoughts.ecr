@@ -25,14 +25,14 @@
         font-style: italic;
     }
     </style>
-    <title>rethink: it's all in your head.</title>
+    <title><%= name %> | rethink</title>
 </head>
 <body>
   <div class="beginning">
     <h1>rethink.</h1>
     <h2>it's all in your head.</h2>
   </div>
-<%- @thoughts.reverse.each do |thought| -%>
+<%- thoughts.reverse.each do |thought| -%>
   <div class="post">
     <p class="content"><%= thought.content %></p>
     <p id="end"><%= thought.date.to_s("%a %h %H:%M:%S %Y") %></p>
