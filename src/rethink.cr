@@ -74,6 +74,8 @@ put "/api/think" do |ctx|
     end
   end
 
+  halt ctx, status_code: 401, response: "Unauthorized" if id.nil?
+
   authorized : Argon2::Response? = nil
   begin
     authorized = Argon2::Password.verify_password(auth, thought_key)
