@@ -54,7 +54,7 @@ get "/~:name" do |ctx|
   render "src/views/thoughts.ecr"
 end
 
-get "/~:name/feed" do |ctx|
+get "/~:name/feed.xml" do |ctx|
   ctx.response.headers["Content-Type"] = "application/atom+xml"
   name = ctx.params.url["name"]
   begin
