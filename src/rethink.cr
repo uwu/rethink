@@ -4,48 +4,67 @@ require "sqlite3"
 require "crystal-argon2"
 require "ecr"
 
-db = DB.open "sqlite3:./rethink.sqlite"
+DATABASE = DB.open "sqlite3:./rethink.sqlite"
 
 class Thought
-  property :content, :date
+  property :id, :content, :date
 
-  def initialize(content : String, date : Time)
+  def initialize(id : Int32, content : String, date : Time)
+    @id = id
     @content = content
     @date = date
   end
 end
 
-class Thoughts
-  def initialize(@thoughts : Array(Thought)) end
-
-  ECR.def_to_s "src/views/thoughts.ecr"
-end
-
-get "/~:name" do |ctx|
-  name = ctx.params.url["name"]
+def getThoughtsByUser(name : String) : Array(Thought)
   thoughts = [] of Thought
 
   id : Int32? = nil
-  db.query("SELECT id FROM users WHERE name = ?", name) do |rows|
+  DATABASE.query("SELECT id FROM users WHERE name = ?", name) do |rows|
     rows.each do
       id = rows.read(Int32)
     end
   end
 
   if id.nil?
-    ctx.response.status_code = 404
-    next "User not found"
+    raise "User not found"
   end
 
-  db.query("SELECT content, date FROM thoughts WHERE author_id = ?", id) do |rows|
+  DATABASE.query("SELECT id, content, date FROM thoughts WHERE author_id = ?", id) do |rows|
     rows.each do
+      id = rows.read(Int32)
       content = rows.read(String)
       date = rows.read(Time)
-      thoughts << Thought.new(content, date)
+      thoughts << Thought.new(id, content, date)
     end
   end
 
-  Thoughts.new(thoughts).to_s
+  thoughts
+end
+
+get "/~:name" do |ctx|
+  name = ctx.params.url["name"]
+  begin
+    thoughts = getThoughtsByUser(name)
+  rescue ex
+  end
+
+  halt ctx, status_code: 404, response: "User not found" if thoughts.nil?
+
+  render "src/views/thoughts.ecr"
+end
+
+get "/~:name/feed.xml" do |ctx|
+  ctx.response.headers["Content-Type"] = "application/atom+xml"
+  name = ctx.params.url["name"]
+  begin
+    thoughts = getThoughtsByUser(name)
+  rescue ex
+  end
+
+  halt ctx, status_code: 404, response: "User not found" if thoughts.nil?
+
+  render "src/views/feed.ecr"
 end
 
 get "/" do
@@ -67,7 +86,7 @@ put "/api/think" do |ctx|
   id : Int32? = nil
   thought_key = ""
 
-  db.query("SELECT id, thought_key FROM users WHERE name = ?", username) do |rows|
+  DATABASE.query("SELECT id, thought_key FROM users WHERE name = ?", username) do |rows|
     rows.each do
       id = rows.read(Int32)
       thought_key = rows.read(String)
@@ -85,11 +104,11 @@ put "/api/think" do |ctx|
   halt ctx, status_code: 401, response: "Unauthorized" unless authorized == Argon2::Response::ARGON2_OK
 
   thought = if ctx.request.body.nil?
-      ""
-    else
-      ctx.request.body.as(IO).gets_to_end
-    end
-  db.exec("INSERT INTO thoughts (author_id, content) VALUES (?, ?)", id, thought)
+              ""
+            else
+              ctx.request.body.as(IO).gets_to_end
+            end
+  DATABASE.exec("INSERT INTO thoughts (author_id, content) VALUES (?, ?)", id, thought)
   ctx.response.status_code = 201
 end
 
@@ -101,5 +120,5 @@ begin
   Kemal.config.env = "production"
   Kemal.run
 ensure
-  db.close
+  DATABASE.close
 end

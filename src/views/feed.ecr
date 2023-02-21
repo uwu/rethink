@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title><%= name %> | rethink</title>
+  <subtitle>it's all in your head.</subtitle>
+
+  <link rel="alternate" href="/" />
+  <link rel="self" href="/~<%= name %>" />
+  <author>
+      <name><%= name %></name>
+  </author>
+  <id>/~<%= name %></id>
+  <generator version="1.0.0">rethink-rss</generator>
+
+  <%- thoughts.reverse.each do |thought| -%>
+  <entry>
+    <title>a thought by <%= name %></title>
+    <published><%= thought.date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></published>
+    <updated><%= thought.date.to_s("%Y-%m-%d\T%H:%M:%S%:z") %></updated>
+    <author>
+      <name><%= name %></name>
+    </author>
+    <link rel="alternate" href="/~<%= name %>" />
+    <summary><%= thought.content %></summary>
+    <id><%= thought.id %></id>
+  </entry>
+  <%- end -%>
+</feed>
