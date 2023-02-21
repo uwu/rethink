@@ -7,9 +7,10 @@ require "ecr"
 DATABASE = DB.open "sqlite3:./rethink.sqlite"
 
 class Thought
-  property :content, :date
+  property :id, :content, :date
 
-  def initialize(content : String, date : Time)
+  def initialize(id : Int32, content : String, date : Time)
+    @id = id
     @content = content
     @date = date
   end
@@ -29,11 +30,12 @@ def getThoughtsByUser(name : String) : Array(Thought)
     raise "User not found"
   end
 
-  DATABASE.query("SELECT content, date FROM thoughts WHERE author_id = ?", id) do |rows|
+  DATABASE.query("SELECT id, content, date FROM thoughts WHERE author_id = ?", id) do |rows|
     rows.each do
+      id = rows.read(Int32)
       content = rows.read(String)
       date = rows.read(Time)
-      thoughts << Thought.new(content, date)
+      thoughts << Thought.new(id, content, date)
     end
   end
 
