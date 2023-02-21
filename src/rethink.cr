@@ -91,6 +91,10 @@ put "/api/think" do |ctx|
   ctx.response.status_code = 201
 end
 
+error 404 do |ctx|
+  render "public/404.html"
+end
+
 begin
   Kemal.config.env = "production"
   Kemal.run
