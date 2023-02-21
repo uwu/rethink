@@ -59,10 +59,7 @@ end
 
 # post to rethink
 put "/api/think" do |ctx|
-  unless ctx.request.headers.has_key?("authorization") && ctx.request.headers.has_key?("name")
-    ctx.response.status_code = 401
-    next "Unauthorized"
-  end
+  halt ctx, status_code: 401, response: "Unauthorized" unless ctx.request.headers.has_key?("authorization") && ctx.request.headers.has_key?("name")
 
   auth = ctx.request.headers["authorization"]
   username = ctx.request.headers["name"]
@@ -83,10 +80,7 @@ put "/api/think" do |ctx|
   rescue ex
   end
 
-  unless authorized == Argon2::Response::ARGON2_OK
-    ctx.response.status_code = 401
-    next "Unauthorized"
-  end
+  halt ctx, status_code: 401, response: "Unauthorized" unless authorized == Argon2::Response::ARGON2_OK
 
   thought = if ctx.request.body.nil?
       ""
