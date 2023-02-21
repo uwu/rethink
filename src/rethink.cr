@@ -59,7 +59,7 @@ end
 
 # post to rethink
 put "/api/think" do |ctx|
-  unless ctx.request.headers.has_key?("authorization") || ctx.request.headers.has_key?("name")
+  unless ctx.request.headers.has_key?("authorization") && ctx.request.headers.has_key?("name")
     ctx.response.status_code = 401
     next "Unauthorized"
   end
