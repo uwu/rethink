@@ -20,8 +20,8 @@ jobs:
       - name: Build the migration script binary
         run: crystal build src/migrate.cr --release --no-debug
 
-      - name: Build the user addition binary
-        run: crystal build src/rethink-populate.cr --release --no-debug
+      - name: Build the administration binary
+        run: crystal build src/admin.cr --release --no-debug
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -30,4 +30,4 @@ jobs:
           path: |
             rethink
             migrate
-            rethink-populate
+            admin
