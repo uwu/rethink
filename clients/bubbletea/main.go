@@ -72,6 +72,7 @@ func initialModel(config config) model {
 	thought.BlurredStyle.Base = inputStyle
 	thought.FocusedStyle.EndOfBuffer = endOfBufferStyle
 	thought.BlurredStyle.EndOfBuffer = endOfBufferStyle
+	thought.CharLimit = 0
 	thought.Focus()
 
 	m := model{
