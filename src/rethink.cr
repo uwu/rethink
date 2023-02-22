@@ -71,11 +71,6 @@ get "/" do
   render "public/index.html"
 end
 
-# Reuse this later for population scripts
-# get "/api/hash" do |ctx|
-#   Argon2::Password.create(ctx.request.body.as(IO).gets_to_end)
-# end
-
 # post to rethink
 put "/api/think" do |ctx|
   halt ctx, status_code: 401, response: "Unauthorized" unless ctx.request.headers.has_key?("authorization") && ctx.request.headers.has_key?("name")

@@ -11,7 +11,7 @@
     h1, h2 {
         color: white;
     }
-    .beginning {
+    .header {
         border-bottom: 1px solid white;
         text-align: center;
     }
@@ -20,23 +20,23 @@
         color: lightgrey;
         border-bottom: 1px solid white;
     }
-    #end {
+    .time {
         color: white;
         font-style: italic;
     }
-    </style>
-    <title><%= name %> | rethink</title>
-    <link rel="alternate" type="application/atom+xml" title="<%= name %>'s thoughts" href="/~<%= name %>/feed.xml">
+  </style>
+  <title><%= name %> | rethink</title>
+  <link rel="alternate" type="application/atom+xml" title="<%= name %>'s thoughts" href="/~<%= name %>/feed.xml">
 </head>
 <body>
-  <div class="beginning">
+  <div class="header">
     <h1>rethink.</h1>
     <h2>it's all in your head.</h2>
   </div>
 <%- thoughts.reverse.each do |thought| -%>
   <div class="post">
     <p class="content"><%= thought.content %></p>
-    <p id="end"><%= thought.date.to_s("%a %h %H:%M:%S %Y") %></p>
+    <p class="time"><%= thought.date.to_s("%a %h %d %H:%M:%S %Y") %></p>
   </div>
 <%- end -%>
 </body>
