@@ -63,6 +63,7 @@ type model struct {
 	keys         keymap
 	help         help.Model
 	err          string
+	errTag       int
 	width        int
 	height       int
 }
@@ -145,11 +146,11 @@ type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
 
-type hideErrMsg struct{}
+type hideErrMsg struct{ tag int }
 
-func hideErrorAfterTime() tea.Cmd {
-	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-		return hideErrMsg{}
+func hideErrorAfterTime(tag int) tea.Cmd {
+	return tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
+		return hideErrMsg{tag}
 	})
 }
 
@@ -241,6 +242,9 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if key.Matches(msg, m.keys.quit) {
@@ -263,11 +267,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = mainState
 		return m, loadThoughts(m.config.Name)
 	case errMsg:
-		m.err = msg.Error()
 		m.thoughtInput.Focus()
-		return m, hideErrorAfterTime()
+		m.err = msg.Error()
+		m.errTag++
+		cmds = append(cmds, hideErrorAfterTime(m.errTag))
 	case hideErrMsg:
-		m.err = ""
+		if msg.tag == m.errTag {
+			m.err = ""
+		}
 	case thoughtsMsg:
 		m.thoughts = msg.thoughts
 		m.thoughtsView.SetContent(m.renderThoughts())
@@ -277,14 +284,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.currentState {
 	case setupState:
-		return m.updateSetup(msg)
+		m, cmd = m.updateSetup(msg)
 	case mainState:
-		return m.updateMain(msg)
+		m, cmd = m.updateMain(msg)
 	}
-	return m, nil
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
-func (m model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m model) updateSetup(msg tea.Msg) (model, tea.Cmd) {
 	var cmds []tea.Cmd = make([]tea.Cmd, len(m.setupInputs))
 
 	switch msg := msg.(type) {
@@ -327,7 +336,7 @@ func (m *model) prevSetupField() {
 	}
 }
 
-func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m model) updateMain(msg tea.Msg) (model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 
@@ -370,6 +379,10 @@ func (m *model) resizeElements() {
 	m.thoughtInput.SetWidth(m.width - 4)
 	m.thoughtsView.Width = m.width - 4
 	m.thoughtsView.Height = m.height - 14
+
+	if m.err != "" {
+		m.thoughtsView.Height = m.height - 15
+	}
 }
 
 func (m model) View() string {
@@ -450,14 +463,4 @@ func main() {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
-	// thoughts, err := GetThoughts("testuser")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// for _, thought := range thoughts {
-	// 	fmt.Printf("%s: %s\n", thought.Date, thought.Content)
-	// }
-
-	// PutThought("", "testuser", "6c663e1f-c478-4c5b-89c7-8f60cdcc4d1f")
 }
