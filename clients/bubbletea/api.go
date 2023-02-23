@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -27,10 +28,17 @@ type Thought struct {
 	Date    time.Time
 }
 
+var baseUrl = "https://rethink.uwu.network"
 var client = http.Client{}
 
+func init() {
+	if url, ok := os.LookupEnv("RETHINK_API"); ok {
+		baseUrl = url
+	}
+}
+
 func getRssFeed(user string) (*rssFeed, error) {
-	url := fmt.Sprintf("https://rethink.uwu.network/~%s/feed.xml", user)
+	url := fmt.Sprintf("%s/~%s/feed.xml", baseUrl, user)
 	res, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -80,9 +88,10 @@ func GetThoughts(user string) ([]Thought, error) {
 }
 
 func PutThought(content string, name string, key string) error {
+	url := fmt.Sprintf("%s/api/think", baseUrl)
 	body := bytes.NewReader([]byte(content))
 
-	req, err := http.NewRequest(http.MethodPut, "https://rethink.uwu.network/api/think", body)
+	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}
