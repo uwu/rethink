@@ -30,7 +30,7 @@ type Thought struct {
 var client = http.Client{}
 
 func getRssFeed(user string) (*rssFeed, error) {
-	url := fmt.Sprintf("http://localhost:3000/~%s/feed.xml", user)
+	url := fmt.Sprintf("https://rethink.uwu.network/~%s/feed.xml", user)
 	res, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func GetThoughts(user string) ([]Thought, error) {
 func PutThought(content string, name string, key string) error {
 	body := bytes.NewReader([]byte(content))
 
-	req, err := http.NewRequest(http.MethodPut, "http://localhost:3000/api/think", body)
+	req, err := http.NewRequest(http.MethodPut, "https://rethink.uwu.network/api/think", body)
 	if err != nil {
 		return err
 	}
