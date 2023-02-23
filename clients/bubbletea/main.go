@@ -1,210 +1,330 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"os"
-	"strings"
+	"time"
 
 	"github.com/adrg/xdg"
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
-
-type config struct {
-	path string
-	User string
-	Key  string
-}
-
-var exitErr error
 
 var (
-	headerStyle      = lipgloss.NewStyle().Align(lipgloss.Center)
-	inputStyle       = lipgloss.NewStyle().Margin(0, 2).Border(lipgloss.NormalBorder())
-	endOfBufferStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8"))
-	helpStyle  = lipgloss.NewStyle().Margin(0, 3)
-	setupStyle = lipgloss.NewStyle().Margin(1, 2)
+	mainStyle         = lipgloss.NewStyle().Margin(0, 2)
+	mainHeaderStyle   = lipgloss.NewStyle().AlignHorizontal(lipgloss.Center)
+	setupHeaderStyle  = lipgloss.NewStyle().Width(11 + 1 + 32 + 4).AlignHorizontal(lipgloss.Center)
+	inputHeaderStyle  = lipgloss.NewStyle().Width(11).AlignHorizontal(lipgloss.Right).Foreground(lipgloss.Color("7"))
+	errStyle          = lipgloss.NewStyle().AlignHorizontal(lipgloss.Center).Background(lipgloss.Color("9")).Foreground(lipgloss.Color("0"))
+	thoughtInputStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder())
+	endOfBufferStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	thoughtStyle      = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+	thoughtDateStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
-var setupKeymap = struct {
-	move, submit key.Binding
-}{
-	move: key.NewBinding(
-		key.WithKeys("shift+tab", "tab"),
-		key.WithHelp("[shift+]tab", "previous/next"),
-	),
-	submit: key.NewBinding(
-		key.WithKeys("enter"),
-		key.WithHelp("enter", "submit"),
-	),
+type keymap struct {
+	// Setup
+	nextSetupField, prevSetupField, setupSubmit key.Binding
+	// Main
+	newerThoughts, olderThoughts, submitThought, openSetup key.Binding
+	// Global
+	quit key.Binding
 }
 
-type keymap = struct {
-	scrollUp, scrollDown, setup, submit, quit key.Binding
-}
+const (
+	name = iota
+	thoughtKey
+)
+
+type appState = int
+
+const (
+	loadingState appState = iota
+	setupState
+	mainState
+)
 
 type model struct {
-	setup       bool
-	config      config
-	width       int
-	height      int
-	thought     textarea.Model
-	setupInputs []textinput.Model
-	setupIndex  int
-	help        help.Model
-	keymap      keymap
+	setupInputs  []textinput.Model
+	setupFocused int
+	thoughtInput textarea.Model
+	thoughts     []Thought
+	thoughtsView viewport.Model
+	currentState appState
+	config       Config
+	keys         keymap
+	help         help.Model
+	err          string
+	width        int
+	height       int
 }
 
-func initialModel(config config) model {
-	thought := textarea.New()
-	thought.Placeholder = "think of something..."
-	thought.Prompt = ""
-	thought.FocusedStyle.Base = inputStyle
-	thought.BlurredStyle.Base = inputStyle
-	thought.FocusedStyle.EndOfBuffer = endOfBufferStyle
-	thought.BlurredStyle.EndOfBuffer = endOfBufferStyle
-	thought.CharLimit = 0
-	thought.Focus()
+func initialModel() model {
+	inputs := make([]textinput.Model, 2)
+
+	inputs[name] = textinput.New()
+	inputs[name].Placeholder = "user"
+	inputs[name].Prompt = ""
+	inputs[name].Focus()
+
+	inputs[thoughtKey] = textinput.New()
+	inputs[thoughtKey].Placeholder = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+	inputs[thoughtKey].CharLimit = 36
+	inputs[thoughtKey].Prompt = ""
+
+	thoughtInput := textarea.New()
+	thoughtInput.Placeholder = "think of something..."
+	thoughtInput.Prompt = ""
+	thoughtInput.FocusedStyle.Base = thoughtInputStyle
+	thoughtInput.BlurredStyle.Base = thoughtInputStyle
+	thoughtInput.FocusedStyle.EndOfBuffer = endOfBufferStyle
+	thoughtInput.BlurredStyle.EndOfBuffer = endOfBufferStyle
+	thoughtInput.CharLimit = 0
+	thoughtInput.Focus()
 
 	m := model{
-		setup:       config.User != "" && config.Key != "",
-		config:      config,
-		thought:     thought,
-		setupInputs: make([]textinput.Model, 2),
-		help:        help.New(),
-		keymap: keymap{
-			scrollUp: key.NewBinding(
+		setupInputs:  inputs,
+		setupFocused: 0,
+		thoughtInput: thoughtInput,
+		currentState: loadingState,
+		thoughtsView: viewport.New(0, 0),
+		keys: keymap{
+			nextSetupField: key.NewBinding(
+				key.WithKeys("tab", "ctrl+n"),
+				key.WithHelp("tab", "next field"),
+			),
+			prevSetupField: key.NewBinding(
+				key.WithKeys("shift+tab", "ctrl+p"),
+				key.WithHelp("shift+tab", "prev field"),
+			),
+			setupSubmit: key.NewBinding(
+				key.WithKeys("enter"),
+				key.WithHelp("enter", "submit"),
+			),
+			newerThoughts: key.NewBinding(
 				key.WithKeys("pgup"),
 				key.WithHelp("pgup", "newer thoughts"),
 			),
-			scrollDown: key.NewBinding(
+			olderThoughts: key.NewBinding(
 				key.WithKeys("pgdown"),
 				key.WithHelp("pgdown", "older thoughts"),
 			),
-			setup: key.NewBinding(
-				key.WithKeys("ctrl+e"),
-				key.WithHelp("ctrl+e", "open setup"),
-			),
-			submit: key.NewBinding(
+			submitThought: key.NewBinding(
 				key.WithKeys("ctrl+s"),
 				key.WithHelp("ctrl+s", "submit thought"),
 			),
+			openSetup: key.NewBinding(
+				key.WithKeys("ctrl+e"),
+				key.WithHelp("ctrl+e", "open setup"),
+			),
 			quit: key.NewBinding(
-				key.WithKeys("esc", "ctrl+q", "ctrl+c"),
-				key.WithHelp("esc", "quit"),
+				key.WithKeys("ctrl+c", "ctrl+q"),
+				key.WithHelp("ctrl+c", "quit"),
 			),
 		},
+		help: help.New(),
 	}
 
-	setupUsername := textinput.New()
-	setupKey := textinput.New()
-
-	setupUsername.SetValue(config.User)
-	setupKey.SetValue(config.Key)
-
-	setupUsername.Placeholder = "Username"
-	setupUsername.Focus()
-
-	setupKey.Placeholder = "Thought key"
-	setupKey.CharLimit = 36
-	setupKey.EchoMode = textinput.EchoPassword
-
-	m.setupInputs[0] = setupUsername
-	m.setupInputs[1] = setupKey
+	m.thoughtsView.KeyMap = viewport.KeyMap{
+		PageDown: m.keys.olderThoughts,
+		PageUp:   m.keys.newerThoughts,
+	}
 
 	return m
 }
 
+type errMsg struct{ err error }
+
+func (e errMsg) Error() string { return e.err.Error() }
+
+type hideErrMsg struct{}
+
+func hideErrorAfterTime() tea.Cmd {
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		return hideErrMsg{}
+	})
+}
+
+type Config struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+type configMsg struct {
+	config Config
+}
+
+type configSavedMsg struct{}
+
+func loadConfig() tea.Msg {
+	filePath, err := xdg.ConfigFile("rethink/config.json")
+	if err != nil {
+		return errMsg{err}
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		content = []byte("{}")
+	}
+
+	var config Config
+	if err := json.Unmarshal(content, &config); err != nil {
+		return errMsg{err}
+	}
+
+	return configMsg{config}
+}
+
+func saveConfig(config Config) tea.Cmd {
+	return func() tea.Msg {
+		filePath, err := xdg.ConfigFile("rethink/config.json")
+		if err != nil {
+			return errMsg{err}
+		}
+
+		content, err := json.Marshal(config)
+		if err != nil {
+			return errMsg{err}
+		}
+
+		err = os.WriteFile(filePath, content, 0644)
+		if err != nil {
+			return errMsg{err}
+		}
+
+		return configSavedMsg{}
+	}
+}
+
+type thoughtSubmittedMsg struct{}
+
+func submitThought(content string, name string, key string) tea.Cmd {
+	return func() tea.Msg {
+		err := PutThought(content, name, key)
+		if err != nil {
+			return errMsg{err}
+		}
+		return thoughtSubmittedMsg{}
+	}
+}
+
+type thoughtsMsg struct {
+	thoughts []Thought
+}
+
+func loadThoughts(name string) tea.Cmd {
+	return func() tea.Msg {
+		thoughts, err := GetThoughts(name)
+		if err != nil {
+			return errMsg{err}
+		}
+		return thoughtsMsg{thoughts}
+	}
+}
+
+func updateThoughts(thoughts []Thought) tea.Cmd {
+	return func() tea.Msg {
+		return thoughtsMsg{thoughts}
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, textinput.Blink)
+	return tea.Batch(loadConfig, cursor.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(msg, m.keymap.quit) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if key.Matches(msg, m.keys.quit) {
 			return m, tea.Quit
 		}
-	}
-
-	if msg, ok := msg.(tea.WindowSizeMsg); ok {
+	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case configMsg:
+		m.config = msg.config
+		m.setupInputs[name].SetValue(m.config.Name)
+		m.setupInputs[thoughtKey].SetValue(m.config.Key)
+		if m.config.Key == "" || m.config.Name == "" {
+			m.currentState = setupState
+			return m, nil
+		}
+		m.currentState = mainState
+		return m, loadThoughts(m.config.Name)
+	case configSavedMsg:
+		m.currentState = mainState
+		return m, loadThoughts(m.config.Name)
+	case errMsg:
+		m.err = msg.Error()
+		m.thoughtInput.Focus()
+		return m, hideErrorAfterTime()
+	case hideErrMsg:
+		m.err = ""
+	case thoughtsMsg:
+		m.thoughts = msg.thoughts
+		m.thoughtsView.SetContent(m.renderThoughts())
 	}
 
-	if !m.setup {
+	m.resizeElements()
+
+	switch m.currentState {
+	case setupState:
 		return m.updateSetup(msg)
+	case mainState:
+		return m.updateMain(msg)
 	}
-	return m.updateMain(msg)
+	return m, nil
 }
 
 func (m model) updateSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd = make([]tea.Cmd, len(m.setupInputs))
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "tab", "shift+tab", "enter", "up", "down":
-			s := msg.String()
-
-			if s == "enter" && m.setupIndex == len(m.setupInputs)-1 {
-				m.config.User = m.setupInputs[0].Value()
-				m.config.Key = m.setupInputs[1].Value()
-				content, err := json.Marshal(m.config)
-				if err != nil {
-					fmt.Printf("Oh no! %v\n", err)
-					os.Exit(1)
-				}
-				os.WriteFile(m.config.path, content, 0644)
-				m.setup = true
-				return m, nil
+		switch {
+		case key.Matches(msg, m.keys.setupSubmit):
+			if m.setupFocused == len(m.setupInputs)-1 {
+				m.config.Name = m.setupInputs[name].Value()
+				m.config.Key = m.setupInputs[thoughtKey].Value()
+				m.currentState = loadingState
+				return m, saveConfig(m.config)
 			}
-
-			if s == "shift+tab" {
-				m.setupIndex--
-			} else {
-				m.setupIndex++
-			}
-
-			if m.setupIndex > len(m.setupInputs)-1 {
-				m.setupIndex = 0
-			} else if m.setupIndex < 0 {
-				m.setupIndex = len(m.setupInputs) - 1
-			}
-
-			cmds := make([]tea.Cmd, len(m.setupInputs))
-			for i := 0; i <= len(m.setupInputs)-1; i++ {
-				if i == m.setupIndex {
-					// Set focused state
-					cmds[i] = m.setupInputs[i].Focus()
-					continue
-				}
-				// Remove focused state
-				m.setupInputs[i].Blur()
-			}
-
-			return m, tea.Batch(cmds...)
+			m.nextSetupField()
+		case key.Matches(msg, m.keys.prevSetupField):
+			m.prevSetupField()
+		case key.Matches(msg, m.keys.nextSetupField):
+			m.nextSetupField()
 		}
+		for i := range m.setupInputs {
+			m.setupInputs[i].Blur()
+		}
+		m.setupInputs[m.setupFocused].Focus()
 	}
-
-	cmd := m.updateSetupInputs(msg)
-	return m, cmd
-}
-
-func (m model) updateSetupInputs(msg tea.Msg) tea.Cmd {
-	cmds := make([]tea.Cmd, len(m.setupInputs))
 
 	for i := range m.setupInputs {
 		m.setupInputs[i], cmds[i] = m.setupInputs[i].Update(msg)
 	}
 
-	return tea.Batch(cmds...)
+	return m, tea.Batch(cmds...)
+}
+
+func (m *model) nextSetupField() {
+	m.setupFocused = (m.setupFocused + 1) % len(m.setupInputs)
+}
+
+func (m *model) prevSetupField() {
+	m.setupFocused--
+	if m.setupFocused < 0 {
+		m.setupFocused = len(m.setupInputs) - 1
+	}
 }
 
 func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -214,140 +334,130 @@ func (m model) updateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keymap.setup):
-			m.setup = false
-		case key.Matches(msg, m.keymap.submit):
-			err := putThought(m.config, m.thought.Value())
-			if err != nil {
-				// make a proper error display
-				exitErr = err
-				return m, tea.Quit
-			}
-			m.thought.SetValue("")
+		case key.Matches(msg, m.keys.openSetup):
+			m.currentState = setupState
+			return m, nil
+		case key.Matches(msg, m.keys.submitThought):
+			m.thoughtInput.Blur()
+			return m, submitThought(m.thoughtInput.Value(), m.config.Name, m.config.Key)
 		}
+	case thoughtSubmittedMsg:
+		thoughts := append([]Thought{{
+			Content: m.thoughtInput.Value(),
+			Date:    time.Now(),
+		}}, m.thoughts...)
+		m.thoughtsView.GotoTop()
+		m.thoughtInput.SetValue("")
+		m.thoughtInput.Focus()
+		return m, updateThoughts(thoughts)
 	}
 
-	m.resizeElements()
-	m.updateKeybinds()
+	m.thoughtInput, cmd = m.thoughtInput.Update(msg)
+	cmds = append(cmds, cmd)
 
-	m.thought, cmd = m.thought.Update(msg)
+	m.thoughtsView, cmd = m.thoughtsView.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m *model) resizeElements() {
-	headerStyle.Width(m.width)
-	m.thought.SetWidth(m.width)
-}
+	errStyle.Width(m.width)
+	mainHeaderStyle.Width(m.width - 4)
 
-func (m *model) updateKeybinds() {
+	thoughtStyle.Width(m.width - 4)
+
+	m.thoughtInput.SetWidth(m.width - 4)
+	m.thoughtsView.Width = m.width - 4
+	m.thoughtsView.Height = m.height - 14
 }
 
 func (m model) View() string {
-	if !m.setup {
-		return setupStyle.Render(m.setupView())
+	var s string
+
+	switch m.currentState {
+	case loadingState:
+		s = "Loading..."
+	case setupState:
+		s = m.setupView()
+	case mainState:
+		s = m.mainView()
 	}
-	return m.mainView()
+
+	notice := ""
+	if m.err != "" {
+		notice = errStyle.Render(m.err) + "\n"
+	}
+
+	return notice + mainStyle.Render(s)
 }
 
 func (m model) setupView() string {
-	s := ""
-
-	s += "rethink setup\n\n"
-
-	for i := range m.setupInputs {
-		s += m.setupInputs[i].View() + "\n"
-	}
-
-	help := m.help.ShortHelpView([]key.Binding{
-		setupKeymap.move,
-		setupKeymap.submit,
-		m.keymap.quit,
-	})
-
-	s += "\n" + help
-
-	return s
+	return fmt.Sprintf("%s\n\n%s %s\n%s %s\n\n%s",
+		setupHeaderStyle.Render("rethink setup"),
+		inputHeaderStyle.Render("Username"),
+		m.setupInputs[name].View(),
+		inputHeaderStyle.Render("Thought key"),
+		m.setupInputs[thoughtKey].View(),
+		m.help.FullHelpView([][]key.Binding{
+			{m.keys.nextSetupField, m.keys.prevSetupField, m.keys.setupSubmit},
+			{m.keys.quit},
+		}),
+	)
 }
 
 func (m model) mainView() string {
 	s := ""
 
-	s += headerStyle.Render("rethink: it's all in your head.") + "\n\n"
-	s += m.thought.View() + "\n"
-	s += "\n   pretend there's your pevious thoughts here"
+	s += mainHeaderStyle.Render("rethink: it's all in your head.") + "\n"
+	s += m.thoughtInput.View() + "\n\n"
 
-	help := m.help.ShortHelpView([]key.Binding{
-		m.keymap.submit,
-		// m.keymap.scrollUp,
-		// m.keymap.scrollDown,
-		m.keymap.setup,
-		m.keymap.quit,
+	// s += fmt.Sprintf("pretend there's a list of %d thoughts here\n\n", len(m.thoughts))
+
+	s += m.thoughtsView.View() + "\n\n"
+
+	s += m.help.FullHelpView([][]key.Binding{
+		{m.keys.newerThoughts, m.keys.olderThoughts},
+		{m.keys.submitThought, m.keys.openSetup, m.keys.quit},
 	})
 
-	// Overwrite empty space to circumvent text from previous updates being there when resizing
-	emptySpace := max(m.height-strings.Count(s, "\n")-1, 0)
-	s += strings.Repeat("\n", emptySpace)
-
-	s += helpStyle.Render(help)
 	return s
 }
 
-func putThought(config config, content string) error {
-	client := http.Client{}
-	body := bytes.NewReader([]byte(content))
-	req, err := http.NewRequest(http.MethodPut, "https://rethink.uwu.network/api/think", body)
-	if err != nil {
-		return err
+func (m model) renderThoughts() string {
+	s := ""
+
+	// there's probably a string builder or smth i should use for this
+	for i, th := range m.thoughts {
+		t := ""
+		if th.Content != "" {
+			t += wordwrap.String(th.Content, m.width-4) + "\n"
+		}
+		t += thoughtDateStyle.Render(th.Date.Format("Mon Jan 02 15:04:05 2006"))
+		if i != len(m.thoughts)-1 {
+			s += thoughtStyle.Render(t) + "\n"
+		} else {
+			s += t
+		}
 	}
-	req.Header.Add("name", config.User)
-	req.Header.Add("authorization", config.Key)
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	if res.StatusCode != http.StatusCreated {
-		return errors.New("could not create thought")
-	}
-	return nil
+
+	return s
 }
 
 func main() {
-	configPath, err := xdg.ConfigFile("rethink/conifg.json")
-	if err != nil {
-		fmt.Printf("Oh no! %v\n", err)
-		os.Exit(1)
-	}
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		content = []byte("{}")
-	}
-
-	var config config
-	err = json.Unmarshal(content, &config)
-	if err != nil {
-		fmt.Printf("Oh no! %v\n", err)
-		os.Exit(1)
-	}
-
-	config.path = configPath
-
-	p := tea.NewProgram(initialModel(config), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Oh no! %v\n", err)
+		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
+	// thoughts, err := GetThoughts("testuser")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if exitErr != nil {
-		fmt.Printf("an error occured: %v\n", exitErr)
-	}
-}
+	// for _, thought := range thoughts {
+	// 	fmt.Printf("%s: %s\n", thought.Date, thought.Content)
+	// }
 
-// how does go not have this function what
-func max(x, y int) int {
-	if x < y {
-		return y
-	}
-	return x
+	// PutThought("", "testuser", "6c663e1f-c478-4c5b-89c7-8f60cdcc4d1f")
 }

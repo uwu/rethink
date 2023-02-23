@@ -1,1 +1,0 @@
-while this client does work somewhat i do not like working with go so i invite whoever reads this to make the client not shit
