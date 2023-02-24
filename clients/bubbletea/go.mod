@@ -2,12 +2,15 @@ module github.com/uwu/rethink/clients/bubbletea
 
 go 1.20
 
+replace github.com/uwu/rethink/clients/rethinkgo => ../rethinkgo
+
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/charmbracelet/bubbles v0.15.0
 	github.com/charmbracelet/bubbletea v0.23.2
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/muesli/reflow v0.3.0
+	github.com/uwu/rethink/clients/rethinkgo v0.0.0-20230224190422-487ab948c8de
 )
 
 require (

@@ -16,6 +16,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
+	"github.com/uwu/rethink/clients/rethinkgo"
 )
 
 var (
@@ -56,7 +57,7 @@ type model struct {
 	setupInputs  []textinput.Model
 	setupFocused int
 	thoughtInput textarea.Model
-	thoughts     []Thought
+	thoughts     []rethinkgo.Thought
 	thoughtsView viewport.Model
 	currentState appState
 	config       Config
@@ -209,7 +210,7 @@ type thoughtSubmittedMsg struct{}
 
 func submitThought(content string, name string, key string) tea.Cmd {
 	return func() tea.Msg {
-		err := PutThought(content, name, key)
+		err := rethinkgo.PutThought(content, name, key)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -218,12 +219,12 @@ func submitThought(content string, name string, key string) tea.Cmd {
 }
 
 type thoughtsMsg struct {
-	thoughts []Thought
+	thoughts []rethinkgo.Thought
 }
 
 func loadThoughts(name string) tea.Cmd {
 	return func() tea.Msg {
-		thoughts, err := GetThoughts(name)
+		thoughts, err := rethinkgo.GetThoughts(name)
 		if err != nil {
 			return errMsg{err}
 		}
@@ -231,7 +232,7 @@ func loadThoughts(name string) tea.Cmd {
 	}
 }
 
-func updateThoughts(thoughts []Thought) tea.Cmd {
+func updateThoughts(thoughts []rethinkgo.Thought) tea.Cmd {
 	return func() tea.Msg {
 		return thoughtsMsg{thoughts}
 	}
@@ -351,7 +352,7 @@ func (m model) updateMain(msg tea.Msg) (model, tea.Cmd) {
 			return m, submitThought(m.thoughtInput.Value(), m.config.Name, m.config.Key)
 		}
 	case thoughtSubmittedMsg:
-		thoughts := append([]Thought{{
+		thoughts := append([]rethinkgo.Thought{{
 			Content: m.thoughtInput.Value(),
 			Date:    time.Now(),
 		}}, m.thoughts...)
