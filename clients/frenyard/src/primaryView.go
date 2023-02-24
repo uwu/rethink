@@ -1,52 +1,23 @@
 package src
 
 import (
+	"fmt"
 	"github.com/uwu/frenyard/design"
 	"github.com/uwu/frenyard/framework"
-	"github.com/uwu/rethink/clients/frenyard/middle"
+	"github.com/uwu/rethink/clients/rethinkgo"
 )
 
-func (app *UpApplication) ShowPrimaryView() {
-	name := ""
-	uploadKey := ""
-	slots := []framework.FlexboxSlot{
-		{
-			Grow: 1,
-		},
-		{
-			Element: design.NewUITextboxPtr("Name", &name),
-		},
-		{
-			Basis: 25,
-		},
-		{
-			Element: design.NewUITextboxPtr("Upload Key", &uploadKey),
-		},
-		{
-			Grow: 1,
-		},
-		{
-			Element: design.ButtonAction(design.ThemeOkActionButton, "Confirm", func() {
-				app.Config.Name = name
-				app.Config.UploadKey = uploadKey
-				middle.WriteConfig(app.Config)
-			}),
-		},
-		{
-			Grow: 1,
-		},
-	}
+func (app *UpApplication) ShowPrimaryView(thoughts []rethinkgo.Thought) {
+	//thoughts, err := rethinkgo.GetThoughts("fucker")
+	//if err != nil {
+	//	fmt.Printf("Failed fetching thoughts: %s", err.Error())
+	//}
+	fmt.Println(thoughts)
 
 	app.Teleport(design.LayoutDocument(design.Header{
-		Title: "rethink",
-		// Back: func() {
-		// 	app.CachedPrimaryView = nil
-		// 	app.GSLeftwards()
-		// },
-		BackIcon:    design.BackIconID,
-		ForwardIcon: design.MenuIconID,
+		Title: "rethink | welcome",
 	}, framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
 		DirVertical: true,
-		Slots:       slots,
+		Slots:       []framework.FlexboxSlot{},
 	}), true))
 }
