@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/adrg/xdg"
 )
 
 type Config struct {
@@ -13,11 +15,13 @@ type Config struct {
 }
 
 func getConfigPath() string {
-	cfg, err := os.UserConfigDir()
-	if err != nil {
-		cfg = ""
+	path, err := xdg.ConfigFile("rethink/config.json")
+	if err == nil {
+		return path
+	} else {
+		fmt.Printf("Something went wrong while finding the config file: %s", err.Error())
 	}
-	return filepath.Join(cfg, "rethink-frenyard.json")
+	return path
 }
 
 func ReadConfig() Config {
