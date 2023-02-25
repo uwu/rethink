@@ -8,16 +8,21 @@ import (
 )
 
 func (app *UpApplication) ShowPrimaryView(thoughts []rethinkgo.Thought) {
-	//thoughts, err := rethinkgo.GetThoughts("fucker")
-	//if err != nil {
-	//	fmt.Printf("Failed fetching thoughts: %s", err.Error())
-	//}
-	fmt.Println(thoughts)
+	var slots []framework.FlexboxSlot
+
+	for _, thought := range thoughts {
+		slots = append(slots, framework.FlexboxSlot{
+			Element: design.ListItem(design.ListItemDetails{
+				Text:    thought.Content,
+				Subtext: thought.Date.String(),
+			}),
+		})
+	}
 
 	app.Teleport(design.LayoutDocument(design.Header{
-		Title: "rethink | welcome",
+		Title: fmt.Sprintf("%s | rethink", app.Config.Name),
 	}, framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
 		DirVertical: true,
-		Slots:       []framework.FlexboxSlot{},
+		Slots:       slots,
 	}), true))
 }
