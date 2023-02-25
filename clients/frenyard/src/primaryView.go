@@ -21,6 +21,13 @@ func (app *UpApplication) ShowPrimaryView(thoughts []rethinkgo.Thought) {
 
 	app.Teleport(design.LayoutDocument(design.Header{
 		Title: fmt.Sprintf("%s | rethink", app.Config.Name),
+		Back: func() {
+			app.CachedPrimaryView = nil
+			app.CachedThoughts = nil
+			app.GSLeftwards()
+			app.ShowLoginForm()
+		},
+		BackIcon: design.BackIconID,
 	}, framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
 		DirVertical: true,
 		Slots:       slots,

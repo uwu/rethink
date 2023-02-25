@@ -19,7 +19,6 @@ func (app *UpApplication) ShowPreface() {
 		fmt.Println(thoughts)
 		app.CachedThoughts = thoughts
 	}, func() {
-		fmt.Println(app.CachedPrimaryView)
 		if app.CachedThoughts == nil {
 			app.ShowLoginForm()
 		} else {
@@ -33,18 +32,20 @@ func (app *UpApplication) ShowPreface() {
 func (app *UpApplication) ShowLoginForm() {
 	name := ""
 	uploadKey := ""
+	config := middle.ReadConfig()
+
 	slots := []framework.FlexboxSlot{
 		{
 			Grow: 1,
 		},
 		{
-			Element: design.NewUITextboxPtr("Name", &name),
+			Element: design.NewUITextboxPtr("Name", &name, config.Name),
 		},
 		{
 			Basis: 25,
 		},
 		{
-			Element: design.NewUITextboxPtr("Upload Key", &uploadKey),
+			Element: design.NewUITextboxPtr("Upload Key", &uploadKey, config.UploadKey),
 		},
 		{
 			Grow: 1,
@@ -54,6 +55,7 @@ func (app *UpApplication) ShowLoginForm() {
 				app.Config.Name = name
 				app.Config.UploadKey = uploadKey
 				middle.WriteConfig(app.Config)
+				app.GSInstant()
 				app.ShowPreface()
 			}),
 		},
