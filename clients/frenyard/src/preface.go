@@ -2,15 +2,16 @@ package src
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/uwu/frenyard/design"
 	"github.com/uwu/frenyard/framework"
 	"github.com/uwu/rethink/clients/frenyard/middle"
 	"github.com/uwu/rethink/clients/rethinkgo"
-	"strings"
 )
 
 func (app *UpApplication) ShowPreface() {
-	warnings := []framework.FlexboxSlot{}
+	var warnings []string
 
 	app.ShowWaiter("Loading...", func(progress func(string)) {
 		progress("Fetching thoughts...")
@@ -19,18 +20,10 @@ func (app *UpApplication) ShowPreface() {
 		if err != nil {
 			fmt.Printf("Something went wrong while fetching thoughts: %s\n", err.Error())
 			if strings.HasSuffix(err.Error(), ": connection refused") {
-				warnings = append(warnings, framework.FlexboxSlot{
-					Element: design.InformationPanel(design.InformationPanelDetails{
-						Text: "Rethink can't be reached.",
-					}),
-				})
+				warnings = append(warnings, "Rethink can't be reached.")
 			}
 			if strings.ContainsAny(err.Error(), "404") {
-				warnings = append(warnings, framework.FlexboxSlot{
-					Element: design.InformationPanel(design.InformationPanelDetails{
-						Text: "This user couldn't be found.",
-					}),
-				})
+				warnings = append(warnings, "This user couldn't be found.")
 			}
 		}
 		fmt.Println(thoughts)
@@ -46,8 +39,8 @@ func (app *UpApplication) ShowPreface() {
 	})
 }
 
-func (app *UpApplication) ShowLoginForm(warns ...framework.FlexboxSlot) {
-	var warnings []framework.FlexboxSlot
+func (app *UpApplication) ShowLoginForm(warns ...string) {
+	var warnings []string
 	if len(warns) > 0 {
 		warnings = warns
 	}
@@ -57,10 +50,15 @@ func (app *UpApplication) ShowLoginForm(warns ...framework.FlexboxSlot) {
 	config := middle.ReadConfig()
 	slots := []framework.FlexboxSlot{}
 
-	slots = append(slots, warnings...)
+	for _, warning := range warnings {
+		slots = append(slots, framework.FlexboxSlot{
+			Element: design.InformationPanel(design.InformationPanelDetails{
+				Text: warning,
+			}),
+		})
+	}
 
 	slots = append(slots, []framework.FlexboxSlot{
-
 		{
 			Grow: 1,
 		},
