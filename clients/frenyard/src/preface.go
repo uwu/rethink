@@ -2,6 +2,7 @@ package src
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/uwu/frenyard/design"
@@ -18,11 +19,18 @@ func (app *UpApplication) ShowPreface() {
 		fmt.Println(app.Config)
 		thoughts, err := rethinkgo.GetThoughts(app.Config.Name)
 		if err != nil {
-			fmt.Printf("Something went wrong while fetching thoughts: %s\n", err.Error())
-			if strings.HasSuffix(err.Error(), ": connection refused") {
+			error := err.Error()
+			fmt.Printf("Something went wrong while fetching thoughts: %s\n", error)
+			if strings.HasSuffix(error, ": no such host") {
+				warnings = append(warnings, fmt.Sprintf("The provided API endpoint does not exist or is invalid. (\"%s\")", os.Getenv("RETHINK_API")))
+			}
+			if strings.Contains(error, "unsupported protocol scheme") {
+				warnings = append(warnings, fmt.Sprintf("The provided API endpoint is invalid. (\"%s\")", os.Getenv("RETHINK_API")))
+			}
+			if strings.HasSuffix(error, ": connection refused") {
 				warnings = append(warnings, "Rethink can't be reached.")
 			}
-			if strings.ContainsAny(err.Error(), "404") {
+			if strings.Contains(error, "404") {
 				warnings = append(warnings, "This user couldn't be found.")
 			}
 		}
