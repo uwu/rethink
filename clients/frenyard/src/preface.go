@@ -16,7 +16,6 @@ func (app *UpApplication) ShowPreface() {
 
 	app.ShowWaiter("Loading...", func(progress func(string)) {
 		progress("Fetching thoughts...")
-		fmt.Println(app.Config)
 		thoughts, err := rethinkgo.GetThoughts(app.Config.Name)
 		if err != nil {
 			error := err.Error()
@@ -34,7 +33,6 @@ func (app *UpApplication) ShowPreface() {
 				warnings = append(warnings, "This user couldn't be found.")
 			}
 		}
-		fmt.Println(thoughts)
 		app.CachedThoughts = thoughts
 	}, func() {
 		if app.CachedThoughts == nil {

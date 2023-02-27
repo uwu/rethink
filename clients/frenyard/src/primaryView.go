@@ -17,7 +17,6 @@ func (app *UpApplication) ShowPrimaryView(thoughts []rethinkgo.Thought, warns ..
 
 	var slots []framework.FlexboxSlot
 
-	fmt.Println(warnings)
 	for _, warning := range warnings {
 		slots = append(slots, framework.FlexboxSlot{
 			Element: design.InformationPanel(design.InformationPanelDetails{
