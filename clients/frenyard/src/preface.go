@@ -97,7 +97,7 @@ func (app *UpApplication) ShowLoginForm(warns ...string) {
 	}...)
 
 	app.Teleport(design.LayoutDocument(design.Header{
-		Title: "rethink | welcome",
+		Title: "welcome | rethink",
 	}, framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
 		DirVertical: true,
 		Slots:       slots,
