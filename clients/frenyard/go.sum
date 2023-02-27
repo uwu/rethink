@@ -9,6 +9,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/uwu/frenyard v1.1.0 h1:S8PJzAzGr1ZpaLW+IGlIAmvc1f/WIAy0EF9ukZXjou0=
+github.com/uwu/frenyard v1.1.0/go.mod h1:0qGn5ZHp098NYLKe4SvBwdyWxdyU/93Ag4flPIZpiSE=
 github.com/uwu/rethink/clients/rethinkgo v0.0.0-20230224190422-487ab948c8de h1:nOA28RxAkwUgy5KNCb2vMNcj988IoCXCI7yyoYTe7+c=
 github.com/uwu/rethink/clients/rethinkgo v0.0.0-20230224190422-487ab948c8de/go.mod h1:+DjjCUqSl3f61LBHOqjvTFYkxoQlWNEHXDtbDUgNDQU=
 github.com/veandco/go-sdl2 v0.4.10 h1:8QoD2bhWl7SbQDflIAUYWfl9Vq+mT8/boJFAUzAScgY=
