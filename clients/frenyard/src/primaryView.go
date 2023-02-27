@@ -9,14 +9,60 @@ import (
 
 func (app *UpApplication) ShowPrimaryView(thoughts []rethinkgo.Thought) {
 	var slots []framework.FlexboxSlot
+	thought := ""
+	slots := []framework.FlexboxSlot{
+		{
+			Element: framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
+				DirVertical: true,
+				Slots: []framework.FlexboxSlot{
+					{
+						Element: design.NewUITextareaPtr("Think of something...", &thought),
+					},
+					{
+						Basis: 25,
+					},
+					{
+						Element: framework.NewUIFlexboxContainerPtr(framework.FlexboxContainer{
+							DirVertical: false,
+							Slots: []framework.FlexboxSlot{
+								{
+									Grow: 1,
+								},
+								{
+									Element: design.ButtonAction(design.ThemeOkActionButton, "Submit", func() {
+										err := rethinkgo.PutThought(thought, app.Config.Name, app.Config.UploadKey)
+										app.GSInstant()
+										newThoughts, err := rethinkgo.GetThoughts(app.Config.Name)
+										if err != nil {
+											fmt.Println("Something went wrong")
+										}
+										app.ShowPrimaryView(newThoughts)
+									}),
+								},
+							},
+						}),
+					},
+				},
+			}),
+		},
+		{
+			Basis: 30,
+		},
+	}
 
-	for _, thought := range thoughts {
+	for i, thought := range thoughts {
 		slots = append(slots, framework.FlexboxSlot{
 			Element: design.ListItem(design.ListItemDetails{
 				Text:    thought.Content,
 				Subtext: thought.Date.String(),
 			}),
 		})
+
+		if i < len(thoughts) {
+			slots = append(slots, framework.FlexboxSlot{
+				Basis: 45,
+			})
+		}
 	}
 
 	app.Teleport(design.LayoutDocument(design.Header{
