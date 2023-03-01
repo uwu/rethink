@@ -35,7 +35,7 @@
   </div>
 <%- thoughts.reverse.each do |thought| -%>
   <div class="post">
-    <p class="content"><%= thought.content %></p>
+    <p class="content"><%= thought.content.strip.gsub("\n", "<br>") %></p>
     <p class="time"><%= thought.date.to_s("%a %h %d %H:%M:%S %Y") %></p>
   </div>
 <%- end -%>
