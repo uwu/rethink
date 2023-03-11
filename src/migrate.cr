@@ -13,5 +13,5 @@ db.exec("CREATE TABLE IF NOT EXISTS thoughts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             author_id INTEGER,
             content TEXT,
-            date DATE DEFAULT (datetime('now', 'localtime')) 
+            date DATE DEFAULT (datetime('now'))
           )")
